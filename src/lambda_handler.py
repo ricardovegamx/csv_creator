@@ -31,6 +31,8 @@ def csv_creator(
 	min_transaction_amount: float = -20000.00,
 	max_transaction_amount: float = 20000.00,
 ):
+	logger.info("started new csv_creator process")
+
 	csv_buffer = io.StringIO()
 	csv_writer = csv.writer(csv_buffer)
 
@@ -44,6 +46,7 @@ def csv_creator(
 	]
 
 	csv_writer.writerow(csv_headers)
+	logger.info("headers written")
 
 	# setup faker
 	generated_files = 0
@@ -59,7 +62,7 @@ def csv_creator(
 		id_user = fake.unique.random_int(10000, get_max_account_numbers(amount))
 		prefix = "4242"
 		account_number = f"{prefix}-{id_user}"
-		
+
 		while generated_data_row < fake_rows_num:
 			record_id = generated_data_row + 1
 			record_date = fake.date_time_between(start_date=start_date, end_date=end_date)
@@ -82,11 +85,15 @@ def csv_creator(
 			generated_data_row += 1
 
 		csv_writer.writerows(csv_data)
+		logger.info("written rows")
 
 		s3 = boto3.client("s3")
+		logger.info("started s3 service")
+		
 		try:
 			key = f"{account_number}_transactions_report.csv"
 			s3.put_object(Bucket=bucket_name, Key=key, Body=csv_buffer.getvalue())
+			logger.info(f"saved object {key} to s3")
 		except Exception as e:
 			logger.error(f"unable to upload file: {e}")
 
@@ -95,20 +102,21 @@ def csv_creator(
 		generated_files += 1
 
 	overview = {"csv_generated": amount, "csv_files_urls": csv_files_urls}
+	logger.info(f"overview generated: {overview}")
 
+	logger.info("about to return success")
+	
 	return {
 		"statusCode": 200,
 		"headers": {
 			"Content-Type": "application/json",
 			"Access-Control-Allow-Origin": "*",
 		},
-		"body": json.dumps(overview),
+		"body": overview
 	}
 
 
-def handler(event):
-	json_request = event["body"]
-
+def lambda_handler(event, context):
 	logger.info(f"event received: {event}")
 
 	event_schema = {
@@ -119,26 +127,26 @@ def handler(event):
 		"max_transaction_amount": {"type": "float", "min": -20000.0, "max": 20000.0},
 	}
 
-	v = Validator(json_request)
-	errors = v.validate(event_schema)
+	v = Validator(event_schema)
+	valid_event = v.validate(event)
 
-	if errors:
+	if not valid_event:
 		return {
-			"statusCode": 401,
+			"statusCode": 400,
 			"headers": {
 				"Content-Type": "application/json",
 				"Access-Control-Allow-Origin": "*",
 			},
-			"body": json.dumps(errors),
+			"body": json.dumps(valid_event),
 		}
 
-	amount = json_request["amount"]
-	rows_min = json_request["rows_min"]
-	rows_max = json_request["rows_max"]
-	min_transaction_amount = json_request["min_transaction_amount"]
-	max_transaction_amount = json_request["max_transaction_amount"]
+	amount = event["amount"]
+	rows_min = event["rows_min"]
+	rows_max = event["rows_max"]
+	min_transaction_amount = event["min_transaction_amount"]
+	max_transaction_amount = event["max_transaction_amount"]
 
-	csv_creator(
+	return csv_creator(
 		amount=amount,
 		rows_min=rows_min,
 		rows_max=rows_max,

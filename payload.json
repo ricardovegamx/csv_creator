@@ -1,0 +1,7 @@
+{
+    "amount": 1,
+    "rows_min": 10,
+    "rows_max": 30,
+    "min_transaction_amount": -10000,
+    "max_transaction_amount": 20000
+  }
