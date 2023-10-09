@@ -1,7 +1,14 @@
+# ✔ TODO: actualizar la manera de contar los archivos realmente generados
+# TODO: configurar API Gateway para que responda adecuadamente http 200 y 400
+# TODO: ajustar logs
+# TODO: checar que no haya nada hardcodeado
+# ✔ TODO: cerciorarse de que el archivo se cierra una vez subido a S3 (no memory leaks)
+
 import csv
 import io
 import logging
 import random
+import uuid
 from datetime import datetime
 
 import boto3
@@ -73,7 +80,7 @@ def csv_creator(
                     record_id,
                     record_date.strftime("%Y-%m-%d %H:%M:%S"),
                     record_transaction_amount,
-                    fake.uuid4(),
+                    str(uuid.uuid4()),
                 ]
             )
 
@@ -88,6 +95,8 @@ def csv_creator(
         try:
             key = f"{account_number}_transactions_report.csv"
             s3.put_object(Bucket=bucket_name, Key=key, Body=csv_buffer.getvalue())
+            csv_buffer.close()  # close the file
+
             logger.info(f"saved object {key} to bucket {bucket_name}")
         except Exception as e:
             logger.error(f"unable to upload file: {e}")
@@ -96,7 +105,7 @@ def csv_creator(
 
         generated_files += 1
 
-    overview = {"csv_generated": amount, "csv_files_urls": csv_files_urls}
+    overview = {"csv_generated": generated_files, "csv_files_urls": csv_files_urls}
     logger.info(f"all operations completed: {overview}")
 
     return {
@@ -148,7 +157,3 @@ def lambda_handler(event, context):
         min_transaction_amount=min_transaction_amount,
         max_transaction_amount=max_transaction_amount,
     )
-
-
-if __name__ == "__main__":
-    csv_creator(amount=20)
