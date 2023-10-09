@@ -39,9 +39,6 @@ def csv_creator(
 ):
     logger.info("started new csv_creator process")
 
-    csv_buffer = io.StringIO()
-    csv_writer = csv.writer(csv_buffer)
-
     csv_headers = [
         "ID",
         "Date",
@@ -49,10 +46,6 @@ def csv_creator(
         "Transaction ID",
     ]
 
-    csv_writer.writerow(csv_headers)
-    logger.info("headers written")
-
-    # setup faker
     generated_files = 0
     current_year = datetime.now().year
     start_date = datetime(current_year, 1, 1, 0, 0, 0)
@@ -60,6 +53,10 @@ def csv_creator(
     csv_files_urls = []
 
     while generated_files < amount:
+        csv_buffer = io.StringIO()
+        csv_writer = csv.writer(csv_buffer)
+        csv_writer.writerow(csv_headers)
+        logger.info("headers written")
         fake_rows_num = fake.random_int(rows_min, rows_max)
         csv_data = []
         generated_data_row = 0
