@@ -1,9 +1,3 @@
-# ✔ TODO: actualizar la manera de contar los archivos realmente generados
-# TODO: configurar API Gateway para que responda adecuadamente http 200 y 400
-# TODO: ajustar logs
-# TODO: checar que no haya nada hardcodeado
-# ✔ TODO: cerciorarse de que el archivo se cierra una vez subido a S3 (no memory leaks)
-
 import csv
 import io
 import logging
@@ -37,8 +31,9 @@ def csv_creator(
     min_transaction_amount: float = -20000.00,
     max_transaction_amount: float = 20000.00,
 ):
-    logger.info("started new csv_creator process")
+    logger.info("started new csv_creator process…")
 
+    # define the headers of csv file
     csv_headers = [
         "ID",
         "Date",
@@ -46,24 +41,30 @@ def csv_creator(
         "Transaction ID",
     ]
 
-    generated_files = 0
-    current_year = datetime.now().year
-    start_date = datetime(current_year, 1, 1, 0, 0, 0)
-    end_date = datetime(current_year, 9, 30, 23, 59, 59)
-    csv_files_urls = []
+    # variables needed for csv generation
+    generated_files = 0  # amount of files actually generated (vs requested)
+    current_year = datetime.now().year  # the generated files will start from current year
+    start_date = datetime(current_year, 1, 1, 0, 0, 0)  # january of current year
+    end_date = datetime(current_year, 9, 30, 23, 59, 59)  # september of current year
+    csv_files_urls = []  # urls of each generated files
 
+    #  start generating the requested amount of csv files
     while generated_files < amount:
-        csv_buffer = io.StringIO()
+        csv_buffer = io.StringIO()  # the csv will be kept on memory
         csv_writer = csv.writer(csv_buffer)
         csv_writer.writerow(csv_headers)
-        logger.info("headers written")
+
+        # the number of transactions according to provided (or default) input
         fake_rows_num = fake.random_int(rows_min, rows_max)
         csv_data = []
-        generated_data_row = 0
+        generated_data_row = 0  # counter of transactions for the file
+
+        # get a random "id_user" from 10000 to max available numbers (50000)
         id_user = fake.unique.random_int(10000, get_max_account_numbers(amount))
-        prefix = "4242"
+        prefix = "4242"  # add prefix so it doesn't start from 10001
         account_number = f"{prefix}{id_user}"
 
+        # start generating rows of current file
         while generated_data_row < fake_rows_num:
             record_id = generated_data_row + 1
             record_date = fake.date_time_between(start_date=start_date, end_date=end_date)
@@ -84,8 +85,9 @@ def csv_creator(
             generated_data_row += 1
 
         csv_writer.writerows(csv_data)
-        logger.info("written rows")
+        logger.info("written transactions to csv file")
 
+        # handle the upload of the file to S3 bucket
         s3 = boto3.client("s3")
         logger.info("started s3 service")
 
