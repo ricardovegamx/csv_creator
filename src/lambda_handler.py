@@ -1,5 +1,6 @@
 import csv
 import io
+import json
 import logging
 import random
 import uuid
@@ -113,24 +114,24 @@ def csv_creator(
             "Content-Type": "application/json",
             "Access-Control-Allow-Origin": "*",
         },
-        "body": overview,
-        "errors": None,
+        "body": json.dumps({"errors": None, "data": overview}),
     }
 
 
 def lambda_handler(event, context):
     logger.info(f"event received: {event}")
+    body = json.loads(event["body"])
 
-    event_schema = {
-        "amount": {"type": "integer", "min": 1, "max": 50},
+    body_schema = {
+        "amount": {"type": "integer", "min": 1, "max": 3},
         "rows_min": {"type": "integer", "min": 1},
         "rows_max": {"type": "integer", "max": 300},
         "min_transaction_amount": {"type": "float", "min": -20000.0, "max": 20000.0},
         "max_transaction_amount": {"type": "float", "min": -20000.0, "max": 20000.0},
     }
 
-    v = Validator(event_schema)
-    valid_event = v.validate(event)
+    v = Validator(body_schema)
+    valid_event = v.validate(body)
 
     if not valid_event:
         return {
@@ -139,15 +140,14 @@ def lambda_handler(event, context):
                 "Content-Type": "application/json",
                 "Access-Control-Allow-Origin": "*",
             },
-            "body": None,
-            "errors": v.errors,
+            "body": json.dumps({"errors": v.errors, "data": None}),
         }
 
-    amount = event["amount"]
-    rows_min = event["rows_min"]
-    rows_max = event["rows_max"]
-    min_transaction_amount = event["min_transaction_amount"]
-    max_transaction_amount = event["max_transaction_amount"]
+    amount = body["amount"]
+    rows_min = body["rows_min"]
+    rows_max = body["rows_max"]
+    min_transaction_amount = body["min_transaction_amount"]
+    max_transaction_amount = body["max_transaction_amount"]
 
     return csv_creator(
         amount=amount,
